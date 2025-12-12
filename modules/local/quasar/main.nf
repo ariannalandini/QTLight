@@ -28,8 +28,8 @@ process QUASAR{
         
 
     output:
-        tuple val(condition), path('*-variant.txt'), emit: quasar_variant
-        tuple val(condition), path('*-region.txt'), emit: quasar_region
+        tuple val(condition), path('*-variant.txt'), emit: quasar_variant, optional:true
+        tuple val(condition), path('*-region.txt'), emit: quasar_region, optional:true
 
     script:
     //TO DO make GRM input more efficient - doesn't need parsing to tsv if not using lmm, nb_glmm or p_glm
@@ -38,24 +38,26 @@ process QUASAR{
     def grm = (model in ['lmm', 'nb_glmm','p_glmm']) ? '--grm grm.tsv' : ''
 
     """
-    zcat ${phenotype_file} | sed s'/gene_id/phenotype_id/' | grep -E '^#chr|^(chr|[0-9])' > phenotype.bed
+    echo "DO NOT RUN QUASAR!" 
+    
+    #zcat ${phenotype_file} | sed s'/gene_id/phenotype_id/' | grep -E '^#chr|^(chr|[0-9])' > phenotype.bed
 
-    transpose_covs.py --infile ${phenotype_pcs} --outfile Covariates.fixed_tmp.tsv
-    sed s'/ /_/g' Covariates.fixed_tmp.tsv > Covariates.fixed.tsv
+    #transpose_covs.py --infile ${phenotype_pcs} --outfile Covariates.fixed_tmp.tsv
+    #sed s'/ /_/g' Covariates.fixed_tmp.tsv > Covariates.fixed.tsv
 
-    convert_grm_to_tsv.py --grm ${sparseGRM} --samples ${sparseGRM_sample} --output grm.tsv
+    #convert_grm_to_tsv.py --grm ${sparseGRM} --samples ${sparseGRM_sample} --output grm.tsv
 
-    echo ${bim.baseName}
+    #echo ${bim.baseName}
 
-    quasar \
-        --plink ${bim.baseName} \
-        --bed phenotype.bed \
-        --cov Covariates.fixed.tsv \
-        ${apl} \
-        ${grm}  \
-        --mode ${mode} \
-        --model ${model} \
-        --out ${outname}
+    #quasar \
+    #    --plink ${bim.baseName} \
+    #    --bed phenotype.bed \
+    #    --cov Covariates.fixed.tsv \
+    #    ${apl} \
+    #    ${grm}  \
+    #    --mode ${mode} \
+    #    --model ${model} \
+    #    --out ${outname}
     """
 
 }
