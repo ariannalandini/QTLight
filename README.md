@@ -143,6 +143,9 @@ The pipeline is built using [Nextflow](https://www.nextflow.io), a workflow tool
             percent_of_population_expressed = 0.05
             // Minimum fraction of individuals in which gene must be expressed
 
+            min_individuals_expressed = 50
+            // Minimum absolute number of individuals in which gene must be expressed
+
            inverse_normal_transform = 'FALSE'
             // Apply inverse normal transformation to data after normalization (if TRUE)
      

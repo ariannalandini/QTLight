@@ -51,6 +51,10 @@ if (args[8]=='true'){
 
 use_sample_pca = as.logical(pc_strat)
 
+### Mimiumum number of individuals expressing the gene filter
+#min_individuals_expressed <- 50
+min_individuals_expressed <- as.numeric(args[9])
+
 # Functions taken from https://github.com/kauralasoo/eQTLUtils/blob/master/R/matrix_operations.R
 quantileNormaliseVector = function(x){
 #  qnorm(rank(x,ties.method = "random")/(length(x)+1)) ### ties.method = "random" means that any time two values are equal, rank() assigns a randomly chosen ordering.
@@ -289,8 +293,7 @@ gene_stats <- data.frame(
 write.table(gene_stats, file="gene_expression_stats.tsv", sep="\t", row.names = FALSE, quote=FALSE)
 
 
-# Remove genes not expressed in at least N individuals - would like to have it not hardcoded but as Nextflow param!
-min_individuals_expressed <- 50 
+# Remove genes not expressed in at least N individuals
 expressed_enough <- apply(normalised_counts, 1, function(x) sum(x > 0) >= min_individuals_expressed)
 normalised_counts <- normalised_counts[expressed_enough, ]
 
