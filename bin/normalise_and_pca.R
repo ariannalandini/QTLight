@@ -307,16 +307,13 @@ if (inverse_normal == TRUE){
 # Compute again per-gene summary stats
 # --------------------------
 if (inverse_normal == TRUE){
-    gene_stats <- data.frame(
-        gene = rownames(normalised_counts),
-        n_total_samples = total_individuals,
-        n_expressing_samples = apply(normalised_counts, 1, function(x) sum(x > 0)),
-        mean_expression = apply(normalised_counts, 1, mean),
-        var_expression = apply(normalised_counts, 1, var),
-        sd_expression = apply(normalised_counts, 1, sd),
-        celltype = cell_type,
-        stringsAsFactors = FALSE
-    )
+    gene_stats <- gene_stats |>
+        dplyr::filter(gene %in% rownames(normalised_counts)) |>
+        dplyr::mutate(
+            mean_expression = apply(normalised_counts, 1, mean),
+            var_expression = apply(normalised_counts, 1, var),
+            sd_expression = apply(normalised_counts, 1, sd)
+        )
     write.table(gene_stats, file="gene_expression_stats_after_rank_based_INT.tsv", sep="\t", row.names = FALSE, quote=FALSE)
 }
 
