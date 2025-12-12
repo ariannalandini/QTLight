@@ -539,7 +539,14 @@ process PHENOTYPE_PCs{
     """
         export LD_LIBRARY_PATH=/opt/libstdc++-old:/usr/lib:/usr/local/lib:\$LD_LIBRARY_PATH
         export LD_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu:\$LD_LIBRARY_PATH
-        saige_phenotype_pcs_and_other_covs.py ${saige_filt_expr_input} ${sanitized_columns}_with_pheno_pcs.tsv ${phenotype_pcs} ${covariates}
+
+	if [ ${phenotype_pcs} -eq 0 ]
+	then
+	  ln -s ${saige_filt_expr_input} ${sanitized_columns}_with_pheno_pcs.tsv
+	  ln -s ${covariates} covariates_new.txt
+	else
+          saige_phenotype_pcs_and_other_covs.py ${saige_filt_expr_input} ${sanitized_columns}_with_pheno_pcs.tsv ${phenotype_pcs} ${covariates}
+	fi
     """
 }
 
