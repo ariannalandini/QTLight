@@ -4,7 +4,7 @@ library(edgeR)
 library(DESeq2)
 library(ggplot2)
 library(PCAtools)
-set.seed(2023)
+#set.seed(2023)
 library(ggfortify)
 library(dplyr)
 library(ggrepel)
@@ -265,15 +265,34 @@ if (norm_method=='NONE' && filter_type=='None'){
     }
 }
 
-# No longer using ties.method = "random" doesn't produces different values for 0 variance genes. Need to remove those
+# No longer using ties.method = "random" doesn't produce different values for 0 variance genes. Need to remove those
 # Remove (again!) zero-variance genes (rows)
-#non_zero_var <- apply(normalised_counts, 1, function(x) var(x) > 0)
-#normalised_counts <- normalised_counts[non_zero_var, ]
+non_zero_var <- apply(normalised_counts, 1, function(x) var(x) > 0)
+normalised_counts <- normalised_counts[non_zero_var, ]
+
+# --------------------------
+# Compute per-gene summary stats
+# --------------------------
+total_individuals <- ncol(normalised_counts)
+cell_type <- gsub("dMean__(.*)___phenotype_file.tsv", "\\1", Star_path)
+
+gene_stats <- data.frame(
+    gene = rownames(normalised_counts),
+    n_total_samples = total_individuals,
+    n_expressing_samples = apply(normalised_counts, 1, function(x) sum(x > 0)),
+    mean_expression = apply(normalised_counts, 1, mean),
+    var_expression = apply(normalised_counts, 1, var),
+    sd_expression = apply(normalised_counts, 1, sd),
+    celltype = cell_type,
+    stringsAsFactors = FALSE
+)
+write.table(gene_stats, file="gene_expression_stats.tsv", sep="\t", row.names = FALSE, quote=FALSE)
+
 
 # Remove genes not expressed in at least N individuals - would like to have it not hardcoded but as Nextflow param!
-#min_individuals_expressed <- 50 
-#expressed_enough <- apply(normalised_counts, 1, function(x) sum(x > 0) >= min_individuals_expressed)
-#normalised_counts <- normalised_counts[expressed_enough, ]
+min_individuals_expressed <- 50 
+expressed_enough <- apply(normalised_counts, 1, function(x) sum(x > 0) >= min_individuals_expressed)
+normalised_counts <- normalised_counts[expressed_enough, ]
 
 # Apply inverse normal transformation to each row so traits are normally distributed
 if (inverse_normal == TRUE){
@@ -281,9 +300,22 @@ if (inverse_normal == TRUE){
   normalised_counts = quantileNormaliseRows(normalised_counts)
 }
 
-# Log - to implement in Nextflow
-#removed_genes <- names(non_zero_var)[non_zero_var]
-#write.table(removed_genes, "genes_removed_zero_variance.tsv", quote = FALSE, row.names = FALSE, col.names = FALSE)
+# --------------------------
+# Compute again per-gene summary stats
+# --------------------------
+if (inverse_normal == TRUE){
+    gene_stats <- data.frame(
+        gene = rownames(normalised_counts),
+        n_total_samples = total_individuals,
+        n_expressing_samples = apply(normalised_counts, 1, function(x) sum(x > 0)),
+        mean_expression = apply(normalised_counts, 1, mean),
+        var_expression = apply(normalised_counts, 1, var),
+        sd_expression = apply(normalised_counts, 1, sd),
+        celltype = cell_type,
+        stringsAsFactors = FALSE
+    )
+    write.table(gene_stats, file="gene_expression_stats_after_rank_based_INT.tsv", sep="\t", row.names = FALSE, quote=FALSE)
+}
 
 
 if (use_sample_pca) {
