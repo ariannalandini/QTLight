@@ -53,7 +53,8 @@ use_sample_pca = as.logical(pc_strat)
 
 # Functions taken from https://github.com/kauralasoo/eQTLUtils/blob/master/R/matrix_operations.R
 quantileNormaliseVector = function(x){
-  qnorm(rank(x,ties.method = "random")/(length(x)+1))
+#  qnorm(rank(x,ties.method = "random")/(length(x)+1)) ### ties.method = "random" means that any time two values are equal, rank() assigns a randomly chosen ordering.
+  qnorm(rank(x,ties.method = "average")/(length(x)+1))
 }
 
 quantileNormaliseMatrix <- function(matrix){
@@ -264,11 +265,26 @@ if (norm_method=='NONE' && filter_type=='None'){
     }
 }
 
+# No longer using ties.method = "random" doesn't produces different values for 0 variance genes. Need to remove those
+# Remove (again!) zero-variance genes (rows)
+#non_zero_var <- apply(normalised_counts, 1, function(x) var(x) > 0)
+#normalised_counts <- normalised_counts[non_zero_var, ]
+
+# Remove genes not expressed in at least N individuals - would like to have it not hardcoded but as Nextflow param!
+#min_individuals_expressed <- 50 
+#expressed_enough <- apply(normalised_counts, 1, function(x) sum(x > 0) >= min_individuals_expressed)
+#normalised_counts <- normalised_counts[expressed_enough, ]
+
 # Apply inverse normal transformation to each row so traits are normally distributed
 if (inverse_normal == TRUE){
   print('Applying inverse normal transformation')
   normalised_counts = quantileNormaliseRows(normalised_counts)
 }
+
+# Log - to implement in Nextflow
+#removed_genes <- names(non_zero_var)[non_zero_var]
+#write.table(removed_genes, "genes_removed_zero_variance.tsv", quote = FALSE, row.names = FALSE, col.names = FALSE)
+
 
 if (use_sample_pca) {
   pcs = prcomp(t(normalised_counts), scale = TRUE)  # PCA on samples
