@@ -29,6 +29,8 @@ process NORMALISE_and_PCA_PHENOTYPE{
         path("*.pdf")
         path(phenotype_file)
         path('mappings_handeling_repeats.tsv'), emit: gen_phen_mapping
+        path("gene_expression_stats*.tsv")
+
     script:
         matcher = (phenotype_file =~ /^([^_]+)___/)
         prefix = matcher ? matcher[0][1] : 'all'
