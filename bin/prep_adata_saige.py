@@ -283,7 +283,7 @@ def main():
             if min_cells:
                 print(f"Working on min cells/sample of {min_cells}")
                 cells_per_sample = counts[genotype_id].value_counts()
-                keep_samples = cells_per_sample[cells_per_sample > min_cells].index
+                keep_samples = cells_per_sample[cells_per_sample >= min_cells].index
                 counts = counts[counts[genotype_id].isin(keep_samples)]
                 del cells_per_sample
             
