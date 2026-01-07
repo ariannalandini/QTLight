@@ -161,7 +161,7 @@ if (grepl("fake_file", Mapping_Path)) {
   Experimental_grops2 <- Experimental_grops2[, c(1,3,2)]
 }
 
-write.table(Experimental_grops2, file='mappings_handeling_repeats.tsv', quote=FALSE, row.names = FALSE,sep='\t')
+#write.table(Experimental_grops2, file='mappings_handeling_repeats.tsv', quote=FALSE, row.names = FALSE,sep='\t')
 Experimental_grops <- Experimental_grops2
 
 nonzero_genes = colSums(Star_counts_pre) != 0
@@ -290,7 +290,7 @@ gene_stats <- data.frame(
     celltype = cell_type,
     stringsAsFactors = FALSE
 )
-write.table(gene_stats, file="gene_expression_stats.tsv", sep="\t", row.names = FALSE, quote=FALSE)
+#write.table(gene_stats, file="gene_expression_stats.tsv", sep="\t", row.names = FALSE, quote=FALSE)
 
 
 # Remove genes not expressed in at least N individuals
@@ -302,114 +302,118 @@ if (inverse_normal == TRUE){
   print('Applying inverse normal transformation')
   normalised_counts = quantileNormaliseRows(normalised_counts)
 }
+#write.table(normalised_counts, file=paste('normalised_phenotype.tsv',sep=''),sep='\t')
 
-# --------------------------
-# Compute again per-gene summary stats
-# --------------------------
-if (inverse_normal == TRUE){
-    gene_stats <- gene_stats |>
-        dplyr::filter(gene %in% rownames(normalised_counts)) |>
-        dplyr::mutate(
-            mean_expression = apply(normalised_counts, 1, mean),
-            var_expression = apply(normalised_counts, 1, var),
-            sd_expression = apply(normalised_counts, 1, sd)
-        )
-    write.table(gene_stats, file="gene_expression_stats_after_rank_based_INT.tsv", sep="\t", row.names = FALSE, quote=FALSE)
+if (ncol(normalised_counts) > min_individuals_expressed){
+
+### Move all files saving here, in order to avoid writing anything if there are not enough individuals left for that cell type
+  write.table(Experimental_grops2, file='mappings_handeling_repeats.tsv', quote=FALSE, row.names = FALSE,sep='\t')
+  write.table(gene_stats, file="gene_expression_stats.tsv", sep="\t", row.names = FALSE, quote=FALSE)
+  write.table(normalised_counts, file=paste('normalised_phenotype.tsv',sep=''),sep='\t')
+
+# Reompute again per-gene summary stats, after rank based INT
+  if (inverse_normal == TRUE){
+      gene_stats <- gene_stats |>
+          dplyr::filter(gene %in% rownames(normalised_counts)) |>
+          dplyr::mutate(
+              mean_expression = apply(normalised_counts, 1, mean),
+              var_expression = apply(normalised_counts, 1, var),
+              sd_expression = apply(normalised_counts, 1, sd)
+          )
+      write.table(gene_stats, file="gene_expression_stats_after_rank_based_INT.tsv", sep="\t", row.names = FALSE, quote=FALSE)
+  }
+
+
+  if (use_sample_pca) {
+    pcs = prcomp(t(normalised_counts), scale = TRUE)  # PCA on samples
+    write.table(pcs$x, file = "all__pcs.tsv", sep = "\t")
+  } else {
+    pcs = prcomp(normalised_counts, scale = TRUE)  # PCA on genes
+    write.table(pcs$rotation, file = "all__pcs.tsv", sep = "\t")
+  }
+
+  pc_var <- pcs$sdev^2
+  explained_variance <- pc_var / sum(pc_var) * 100
+  cumulative_variance <- cumsum(explained_variance)
+
+  # Limit to first 10 PCs
+  num_pcs <- 10
+  explained_variance <- explained_variance[1:num_pcs]
+  cumulative_variance <- cumulative_variance[1:num_pcs]
+
+  # Set up the plotting area
+  par(mar = c(5, 5, 2, 2))  # Adjust margins for better spacing
+
+  pdf("screeplot.pdf")
+  par(bg = "white")
+  # First, draw an empty plot to define the plot area and add grid
+  bar_positions <- barplot(explained_variance, names.arg = 1:num_pcs,
+                           col = NA, border = NA, ylim = c(0, 100),
+                           xlab = "Principal component", ylab = "Explained variation (%)")
+  # Add grid lines (horizontal every 10%, vertical at each bar position)
+  grid(nx = length(bar_positions), ny = 10, col = "lightgray", lty = "dotted")
+  # Redraw the bar plot on top of the grid
+  bar_positions <- barplot(explained_variance, names.arg = 1:num_pcs,
+                           col = "dodgerblue", border = NA, ylim = c(0, 100),
+                           xlab = "Principal component", ylab = "Explained variation (%)", add = TRUE)
+  # Overlay cumulative variance as red line
+  lines(bar_positions, cumulative_variance, col = "red", type = "b", pch = 16, lwd = 2)
+  dev.off()
+
+  pdf("biplot.pdf", width = 8, height = 6) 
+
+  # Extract variance explained
+  pc_variance <- summary(pcs)$importance[2,] * 100  # Convert proportion to percentage
+
+  # Create PCA plot without metadata
+  p <- autoplot(pcs, scale = 0, loadings = FALSE, alpha = 0.9, size = 1.2) +
+    labs(
+      x = paste0("PC1 (", round(pc_variance[1], 2), "% variation)"),
+      y = paste0("PC2 (", round(pc_variance[2], 2), "% variation)"),
+      title = "PCA Biplot"
+    ) +
+    theme_minimal() +  # Enables grid lines
+    theme(
+      text = element_text(size = 5),
+      axis.title = element_text(size = 14, face = "bold"),
+      plot.title = element_text(hjust = 0.5, face = "bold", size = 12),
+      panel.grid.major = element_line(color = "grey80", size = 0.4),
+      panel.grid.minor = element_line(color = "grey90", size = 0.2),
+      legend.position = "none"
+    )
+
+  # Label only the top N most extreme points
+  num_labels <- 20
+  scores <- as.data.frame(pcs$x[, 1:2])
+  top_samples <- rownames(scores)[order(abs(scores$PC1) + abs(scores$PC2), decreasing = TRUE)[1:num_labels]]
+  scores_subset <- scores[top_samples, ]
+
+  # Add labels with smaller font
+  p <- p + 
+    geom_text_repel(data = scores_subset, aes(x = PC1, y = PC2, label = rownames(scores_subset)), 
+                    size = 1, max.overlaps = 25)
+
+  print(p)
+  dev.off()
+
+
+  pdf("loadings.pdf") 
+  pca=pcs
+  loadings <- as.data.frame(pca$rotation)
+  loadings$Variable <- rownames(loadings)
+  loadings_melted <- reshape2::melt(loadings, id.vars = "Variable", variable.name = "PrincipalComponent", value.name = "LoadingScore")
+  loadings_melted <- loadings_melted %>% group_by(PrincipalComponent) %>% arrange(desc(abs(LoadingScore))) %>% slice(1:5)
+
+  ggplot(loadings_melted[loadings_melted$PrincipalComponent %in% c(paste0("PC",1:9)),], aes(x = Variable, y = LoadingScore)) +
+    geom_bar(stat = "identity", color = "black") +
+    facet_wrap(~PrincipalComponent, scales = "free", ncol = 3) +
+    scale_y_continuous(limits = c(-1, 1)) +
+    labs(
+      title = "PCA Loading Scores - top 5 genes",
+      x = "Gene",
+      y = "Loading Score"
+    ) +
+   theme_minimal() +
+    theme(axis.text.x = element_text(angle = 90, hjust = 1))
+  dev.off()
 }
-
-
-if (use_sample_pca) {
-  pcs = prcomp(t(normalised_counts), scale = TRUE)  # PCA on samples
-  write.table(pcs$x, file = "all__pcs.tsv", sep = "\t")
-} else {
-  pcs = prcomp(normalised_counts, scale = TRUE)  # PCA on genes
-  write.table(pcs$rotation, file = "all__pcs.tsv", sep = "\t")
-}
-
-write.table(normalised_counts,file=paste('normalised_phenotype.tsv',sep=''),sep='\t')
-
-
-pc_var <- pcs$sdev^2
-explained_variance <- pc_var / sum(pc_var) * 100
-cumulative_variance <- cumsum(explained_variance)
-
-# Limit to first 10 PCs
-num_pcs <- 10
-explained_variance <- explained_variance[1:num_pcs]
-cumulative_variance <- cumulative_variance[1:num_pcs]
-
-# Set up the plotting area
-par(mar = c(5, 5, 2, 2))  # Adjust margins for better spacing
-
-pdf("screeplot.pdf")
-par(bg = "white")
-# First, draw an empty plot to define the plot area and add grid
-bar_positions <- barplot(explained_variance, names.arg = 1:num_pcs,
-                         col = NA, border = NA, ylim = c(0, 100),
-                         xlab = "Principal component", ylab = "Explained variation (%)")
-# Add grid lines (horizontal every 10%, vertical at each bar position)
-grid(nx = length(bar_positions), ny = 10, col = "lightgray", lty = "dotted")
-# Redraw the bar plot on top of the grid
-bar_positions <- barplot(explained_variance, names.arg = 1:num_pcs,
-                         col = "dodgerblue", border = NA, ylim = c(0, 100),
-                         xlab = "Principal component", ylab = "Explained variation (%)", add = TRUE)
-# Overlay cumulative variance as red line
-lines(bar_positions, cumulative_variance, col = "red", type = "b", pch = 16, lwd = 2)
-dev.off()
-
-pdf("biplot.pdf", width = 8, height = 6) 
-
-# Extract variance explained
-pc_variance <- summary(pcs)$importance[2,] * 100  # Convert proportion to percentage
-
-# Create PCA plot without metadata
-p <- autoplot(pcs, scale = 0, loadings = FALSE, alpha = 0.9, size = 1.2) +
-  labs(
-    x = paste0("PC1 (", round(pc_variance[1], 2), "% variation)"),
-    y = paste0("PC2 (", round(pc_variance[2], 2), "% variation)"),
-    title = "PCA Biplot"
-  ) +
-  theme_minimal() +  # Enables grid lines
-  theme(
-    text = element_text(size = 5),
-    axis.title = element_text(size = 14, face = "bold"),
-    plot.title = element_text(hjust = 0.5, face = "bold", size = 12),
-    panel.grid.major = element_line(color = "grey80", size = 0.4),
-    panel.grid.minor = element_line(color = "grey90", size = 0.2),
-    legend.position = "none"
-  )
-
-# Label only the top N most extreme points
-num_labels <- 20
-scores <- as.data.frame(pcs$x[, 1:2])
-top_samples <- rownames(scores)[order(abs(scores$PC1) + abs(scores$PC2), decreasing = TRUE)[1:num_labels]]
-scores_subset <- scores[top_samples, ]
-
-# Add labels with smaller font
-p <- p + 
-  geom_text_repel(data = scores_subset, aes(x = PC1, y = PC2, label = rownames(scores_subset)), 
-                  size = 1, max.overlaps = 25)
-
-print(p)
-dev.off()
-
-
-pdf("loadings.pdf") 
-pca=pcs
-loadings <- as.data.frame(pca$rotation)
-loadings$Variable <- rownames(loadings)
-loadings_melted <- reshape2::melt(loadings, id.vars = "Variable", variable.name = "PrincipalComponent", value.name = "LoadingScore")
-loadings_melted <- loadings_melted %>% group_by(PrincipalComponent) %>% arrange(desc(abs(LoadingScore))) %>% slice(1:5)
-
-ggplot(loadings_melted[loadings_melted$PrincipalComponent %in% c(paste0("PC",1:9)),], aes(x = Variable, y = LoadingScore)) +
-  geom_bar(stat = "identity", color = "black") +
-  facet_wrap(~PrincipalComponent, scales = "free", ncol = 3) +
-  scale_y_continuous(limits = c(-1, 1)) +
-  labs(
-    title = "PCA Loading Scores - top 5 genes",
-    x = "Gene",
-    y = "Loading Score"
-  ) +
-  theme_minimal() +
-  theme(axis.text.x = element_text(angle = 90, hjust = 1))
-dev.off()
