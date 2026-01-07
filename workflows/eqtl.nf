@@ -183,7 +183,7 @@ workflow EQTL {
             
             Channel
                 .fromPath(params.pre_aggregated_counts_folder + '/*/*___sample_covariates.tsv')
-                .ifEmpty { error "No sample_covariates files found in ${params.pre_aggregated_counts_folder}" }
+                //.ifEmpty { error "No sample_covariates files found in ${params.pre_aggregated_counts_folder}" }
                 .map { file1 ->
                     def parts = "${file1}".split('___')
                     def name_pre = parts[ parts.size() - 2 ]
@@ -191,6 +191,7 @@ workflow EQTL {
                     def name = name_parts[ name_parts.size() - 1 ]
                     tuple(name, file(file1))
                 }
+		.ifEmpty { Channel.empty() } // new line added by Ari
                 .set { covariates_by_name }
                 
             Channel
