@@ -23,13 +23,13 @@ process NORMALISE_and_PCA_PHENOTYPE{
         
 
     output:
-        tuple(val(outname),path("normalised_phenotype.tsv"), path("all__pcs.tsv") , emit: filtered_phenotype)
-        tuple(val(outname),path('mappings_handeling_repeats.tsv'),path("normalised_phenotype.tsv"),path("all__pcs.tsv"), emit: for_bed)
-        val(outname), emit: cond1
-        path("*.pdf")
-        path(phenotype_file)
-        path('mappings_handeling_repeats.tsv'), emit: gen_phen_mapping
-        path("gene_expression_stats*.tsv")
+        tuple val(outname), path("normalised_phenotype.tsv"), path("all__pcs.tsv"), optional:true, emit:filtered_phenotype
+        tuple val(outname),path('mappings_handeling_repeats.tsv'),path("normalised_phenotype.tsv"), path("all__pcs.tsv"), optional:true, emit:for_bed
+        val(outname), emit:cond1
+        path("*.pdf"), optional:true
+        path(phenotype_file), optional:true
+        path('mappings_handeling_repeats.tsv'), optional:true, emit:gen_phen_mapping
+        path("gene_expression_stats*.tsv"), optional:true
 
     script:
         matcher = (phenotype_file =~ /^([^_]+)___/)
