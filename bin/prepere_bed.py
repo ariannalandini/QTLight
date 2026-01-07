@@ -159,7 +159,7 @@ def main():
     BED_Formated_Data = BED_Formated_Data[BED_Formated_Data['end']>0]
 
     # Gene_Chr_Start_End_Data=Gene_Chr_Start_End_Data.iloc[list(Expression_Data.index)]
-    Mapping_File=pd.read_csv(mapping_file,sep="\t")
+    Mapping_File=pd.read_csv(mapping_file, sep="\t", dtype={"RNA": str, "Genotype": str}) ### make sure that IDs are characters!
     try:
         Mapping_File=Mapping_File.drop('Sample_Category',axis=1)
     except:
@@ -177,6 +177,7 @@ def main():
     mergedDf = mergedDf2.loc[chrs]
     mergedDf = mergedDf.reset_index()
     mergedDf.dropna(axis=0,inplace=True)
+    mergedDf.columns = mergedDf.columns.astype(str) ### for being extra sure column names are characters
     mergedDf.to_csv("Expression_Data.bed.gz", sep='\t', compression='gzip',index=False)
 
 if __name__ == '__main__':
